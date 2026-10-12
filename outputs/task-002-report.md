@@ -22,7 +22,7 @@ Supported Python: 3.11 or newer. Verified with Python 3.12.13.
 Clean venv command:
 
 ```bash
-/Users/batcomputer/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m venv work/task002-clean-venv
+python -m venv work/task002-clean-venv
 work/task002-clean-venv/bin/python -m pip install -e 'backend[test]'
 ```
 

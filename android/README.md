@@ -11,7 +11,7 @@ ranking.
 - JDK 17 or 21. Java 12 is too old for Android Gradle Plugin 8.13.2, and the
   Java 25 JBR bundled with the local Android Studio install is not usable with
   the cached Gradle/Groovy runtime in this workspace.
-- Gradle 8.13 or newer.
+- The checked-in Gradle wrapper under `android/`.
 
 ## Backend
 
@@ -35,7 +35,7 @@ override:
 ```bash
 adb reverse tcp:8000 tcp:8000
 cd android
-gradle :app:assembleDebug -Preposage.backendUrl=http://127.0.0.1:8000/
+./gradlew :app:assembleDebug -Preposage.backendUrl=http://127.0.0.1:8000/
 ```
 
 Local cleartext HTTP is allowed only by the debug manifest network-security
@@ -46,8 +46,8 @@ configuration.
 From `android/` with `JAVA_HOME` pointing to JDK 17 or 21:
 
 ```bash
-gradle testDebugUnitTest
-gradle assembleDebug
+./gradlew testDebugUnitTest
+./gradlew assembleDebug
 ```
 
 Focused tests cover ViewModel success, empty results, retry after errors,

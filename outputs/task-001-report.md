@@ -4,18 +4,18 @@ Implemented RepoSage's local retrieval core and CLI under `backend/`.
 
 ## Evaluated DevPulse Checkout
 
-- Path: `/Users/batcomputer/Documents/Codex/2026-09-08/we-are-starting-a-production-quality`
+- Path: local DevPulse working tree; absolute machine path omitted
 - Git HEAD: `5d6f5ebc842f6cf4bd8d6f2b716e08043ac695f2`
 - Dirty state: `false`
 
 ## Verification Commands Run
 
 ```bash
-/Users/batcomputer/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s backend/tests -v
+python -m unittest discover -s backend/tests -v
 
-/usr/bin/env PYTHONPATH=backend/src /Users/batcomputer/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m reposage.cli index --repo /Users/batcomputer/Documents/Codex/2026-09-08/we-are-starting-a-production-quality --db .data/devpulse.db --json
+PYTHONPATH=backend/src python -m reposage.cli index --repo /path/to/devpulse-checkout --db .data/devpulse.db --json
 
-/usr/bin/env PYTHONPATH=backend/src /Users/batcomputer/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m reposage.cli eval --db .data/devpulse.db --fixture backend/evaluation/devpulse_questions.json --top-k 5
+PYTHONPATH=backend/src python -m reposage.cli eval --db .data/devpulse.db --fixture backend/evaluation/devpulse_questions.json --top-k 5
 
 work/reprosage-venv-system/bin/python -m pip install --no-build-isolation -e backend
 

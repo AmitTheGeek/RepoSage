@@ -66,16 +66,14 @@ Project versions inspected:
 
 Installed JDKs inspected:
 
-- System JDK: Java 12.0.2 at
-  `/Library/Java/JavaVirtualMachines/jdk-12.0.2.jdk/Contents/Home`; too old for
-  AGP 8.13.2.
+- System JDK: Java 12.0.2; too old for AGP 8.13.2.
 - Android Studio JBR: Java 25.0.3; not compatible with this cached
   Gradle/Groovy runtime, which failed earlier with `Unsupported class file major
   version 69`.
-- Selected build JDK: existing user-local Eclipse Temurin JDK 17.0.20.1 at
-  `work/jdk17/Contents/Home` in the neighboring PocketAI workspace. No global
-  Java defaults or Android Studio runtime were changed. The local source archive
-  checksum recorded for that JDK artifact is
+- Selected build JDK: existing user-local Eclipse Temurin JDK 17.0.20.1 outside
+  this checkout; absolute machine path omitted. No global Java defaults or
+  Android Studio runtime were changed. The local source archive checksum
+  recorded for that JDK artifact is
   `c01975da12ed4235250ff891fe8bba73a9e73037d444b269c9d0922b5dbc8e0a`.
 
 Wrapper and local build configuration:
@@ -102,7 +100,7 @@ e996d452d2645e70c01c11143ca2d3742734a28da2bf61f25c82bdc288c9e637  android/gradle
 Gradle 8.14.3
 Kotlin 2.0.21
 Launcher JVM: 17.0.20.1 (Eclipse Adoptium 17.0.20.1+1)
-Daemon JVM: work/jdk17/Contents/Home
+Daemon JVM: user-local Temurin 17 path omitted
 OS: Mac OS X 12.7.6 x86_64
 ```
 
@@ -167,9 +165,9 @@ Original Task 003 Android environment checks:
 
 ```bash
 /usr/libexec/java_home -V
-/Applications/Android\ Studio.app/Contents/jbr/Contents/Home/bin/java -version
-/Users/batcomputer/Library/Android/sdk/platform-tools/adb devices
-/Users/batcomputer/Library/Android/sdk/emulator/emulator -list-avds
+<android-studio-jbr>/bin/java -version
+adb devices
+emulator -list-avds
 ```
 
 Results:
@@ -182,9 +180,7 @@ Results:
 Android unit-test attempt:
 
 ```bash
-JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-12.0.2.jdk/Contents/Home \
-  /Users/batcomputer/.gradle/wrapper/dists/gradle-8.14.3-bin/cv11ve7ro1n3o1j4so8xd9n66/gradle-8.14.3/bin/gradle \
-  testDebugUnitTest --no-daemon
+JAVA_HOME=<system-java-12> ./gradlew testDebugUnitTest --no-daemon
 ```
 
 Result: blocked before test execution because Android Gradle Plugin requires
@@ -193,9 +189,7 @@ Java 17 and the available system JDK is Java 12.
 Android Studio JBR attempt:
 
 ```bash
-JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home' \
-  /Users/batcomputer/.gradle/wrapper/dists/gradle-8.14.3-bin/cv11ve7ro1n3o1j4so8xd9n66/gradle-8.14.3/bin/gradle \
-  testDebugUnitTest --no-daemon
+JAVA_HOME=<android-studio-java-25-jbr> ./gradlew testDebugUnitTest --no-daemon
 ```
 
 Result: blocked with `Unsupported class file major version 69`, so the Java 25
@@ -204,9 +198,7 @@ JBR is not usable for this Gradle/Groovy build here.
 Android assemble attempt:
 
 ```bash
-JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-12.0.2.jdk/Contents/Home \
-  /Users/batcomputer/.gradle/wrapper/dists/gradle-8.14.3-bin/cv11ve7ro1n3o1j4so8xd9n66/gradle-8.14.3/bin/gradle \
-  assembleDebug --no-daemon
+JAVA_HOME=<system-java-12> ./gradlew assembleDebug --no-daemon
 ```
 
 Result: blocked for the same Java 17 requirement.

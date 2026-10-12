@@ -13,5 +13,29 @@ htmlcov/
 *.egg-info/
 dist/
 build/
+*.apk
+
+# Android/IDE local state.
 android/.gradle/
+android/.kotlin/
 android/local.properties
+local.properties
+.idea/
+*.iml
+
+# Local secrets and signing material.
+.env
+.env.*
+*.keystore
+*.jks
+*.pem
+*.key
+*.p12
+
+# Copied external repositories/corpora used for local indexing experiments.
+/devpulse/
+/DevPulse/
+/devpulse-corpus/
+/devpulse-checkout/
+/copied-corpus/
+/external-corpus/

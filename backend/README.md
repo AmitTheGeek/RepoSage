@@ -37,7 +37,7 @@ API behavior.
 
 ```bash
 reposage index \
-  --repo /Users/batcomputer/Documents/Codex/2026-09-08/we-are-starting-a-production-quality \
+  --repo /path/to/devpulse-checkout \
   --db .data/devpulse.db
 ```
 
@@ -149,7 +149,7 @@ reposage eval \
 
 Task 001 evaluation run:
 
-- DevPulse checkout: `/Users/batcomputer/Documents/Codex/2026-09-08/we-are-starting-a-production-quality`
+- DevPulse checkout: local DevPulse working tree; absolute machine path omitted
 - Git HEAD: `5d6f5ebc842f6cf4bd8d6f2b716e08043ac695f2`
 - Dirty state: `false`
 - Files indexed: 107
