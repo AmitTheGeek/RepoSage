@@ -1,0 +1,89 @@
+{
+  "description": "Fixed RepoSage Task 001 evaluation questions for the local DevPulse checkout. Expected locations were selected manually from code before retrieval tuning.",
+  "questions": [
+    {
+      "id": "devpulse-cache-freshness",
+      "question": "How does DevPulse decide whether developer and repository data is still fresh before refreshing?",
+      "expected_locations": [
+        {
+          "path": "core/data/src/main/java/com/devpulse/core/data/repository/DefaultDeveloperRepository.kt",
+          "start_line": 34,
+          "end_line": 51,
+          "note": "refreshDeveloper checks developer and repository sync keys before fetching and syncing."
+        },
+        {
+          "path": "core/data/src/main/java/com/devpulse/core/data/cache/CacheFreshnessPolicy.kt",
+          "start_line": 6,
+          "end_line": 15,
+          "note": "CacheFreshnessPolicy defines the TTL-based freshness check."
+        }
+      ]
+    },
+    {
+      "id": "devpulse-owner-list-snapshot",
+      "question": "What happens to saved repositories when a complete owner repository list no longer contains them?",
+      "expected_locations": [
+        {
+          "path": "core/data/src/main/java/com/devpulse/core/data/sync/GitHubSync.kt",
+          "start_line": 82,
+          "end_line": 108,
+          "note": "Complete snapshots mark saved repositories missing and delete unsaved repositories."
+        },
+        {
+          "path": "core/database/src/main/java/com/devpulse/core/database/dao/RepositoryDao.kt",
+          "start_line": 64,
+          "end_line": 119,
+          "note": "DAO queries implement missing-saved marking and unsaved deletion."
+        }
+      ]
+    },
+    {
+      "id": "devpulse-toggle-saved",
+      "question": "How does the app save or unsave a repository from the repository detail screen?",
+      "expected_locations": [
+        {
+          "path": "feature/repository/src/main/java/com/devpulse/feature/repository/RepositoryViewModel.kt",
+          "start_line": 77,
+          "end_line": 97,
+          "note": "RepositoryViewModel toggles the saved state for the current repository."
+        },
+        {
+          "path": "core/data/src/main/java/com/devpulse/core/data/repository/DefaultRepositoryCatalog.kt",
+          "start_line": 86,
+          "end_line": 110,
+          "note": "RepositoryCatalog persists saved and unsaved state inside a transaction."
+        }
+      ]
+    },
+    {
+      "id": "devpulse-error-mapping",
+      "question": "How are GitHub HTTP errors mapped to DevPulse errors like rate limited, not found, and server error?",
+      "expected_locations": [
+        {
+          "path": "core/data/src/main/java/com/devpulse/core/data/error/ErrorMapping.kt",
+          "start_line": 7,
+          "end_line": 42,
+          "note": "ErrorMapping converts IO, Retrofit HTTP, SQL, and unknown failures into DevPulseError values."
+        }
+      ]
+    },
+    {
+      "id": "devpulse-search-validation",
+      "question": "How does the search screen validate and submit a GitHub username?",
+      "expected_locations": [
+        {
+          "path": "feature/search/src/main/java/com/devpulse/feature/search/SearchScreen.kt",
+          "start_line": 42,
+          "end_line": 52,
+          "note": "SearchRoute trims, validates, stores errors, and submits the normalized username."
+        },
+        {
+          "path": "feature/search/src/main/java/com/devpulse/feature/search/SearchScreen.kt",
+          "start_line": 137,
+          "end_line": 145,
+          "note": "The GitHub username regex and validation messages live here."
+        }
+      ]
+    }
+  ]
+}
