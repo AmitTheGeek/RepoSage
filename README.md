@@ -5,9 +5,11 @@ checkout into SQLite, exposes search through a small Python API, and provides a
 debug Android client that renders exact source snippets with repository-relative
 line citations.
 
-The current milestone is retrieval only. Generated answers, embeddings,
-authentication, cloud sync, saved Android history, and multi-repository
-management are not implemented.
+The current Android milestone is retrieval only. The backend also has an
+experimental `/answer` endpoint that asks Gemini for structured answers grounded
+in retrieved chunks and validates the returned source IDs before resolving
+citations. Embeddings, authentication, cloud sync, saved Android history, and
+multi-repository management are not implemented.
 
 ## Current Functionality
 
@@ -15,6 +17,8 @@ management are not implemented.
 - SQLite FTS5 stores chunked source text and index metadata.
 - FastAPI exposes `GET /health` and `POST /search` against a prebuilt local
   index.
+- FastAPI exposes optional `POST /answer` when `GEMINI_API_KEY` is configured on
+  the server.
 - Android debug app submits a question to the API and shows loading, result,
   empty, and retryable error states.
 - Results include exact code snippets and citations such as
@@ -29,6 +33,14 @@ Android Compose app
   -> Python FastAPI /search endpoint
   -> RepoSage retrieval core
   -> SQLite FTS5 index built from a local Git checkout
+
+Optional backend-only answer flow:
+
+Python FastAPI /answer endpoint
+  -> RepoSage retrieval core
+  -> bounded source-ID evidence context
+  -> Gemini structured output
+  -> server-side source-reference validation
 ```
 
 The Android app does not index repositories itself. It expects the Python
@@ -40,6 +52,7 @@ Setup details live in:
 - [Backend setup and API docs](backend/README.md)
 - [Android setup, build, and install docs](android/README.md)
 - [Task 003 verification report](outputs/task-003-report.md)
+- [Task 004 answer-generation report](outputs/task-004-report.md)
 
 ## Verified Checkpoint
 
@@ -78,8 +91,11 @@ non-personal test content.
   ViewModel/catalog chunks.
 - The Android client is a debug vertical slice and requires a separately running
   local backend.
-- Generated answers are not implemented yet; the app shows retrieved source
-  evidence only.
+- Generated answers are backend-only in Task 004; the Android app still shows
+  retrieved source evidence only.
+- Source-reference validation verifies that generated claims cite supplied source
+  IDs and that citations are resolved from stored metadata. It does not prove
+  semantic correctness.
 - No production hardening, authentication, remote repository management, or
   concurrent reindex coordination has been added.
 

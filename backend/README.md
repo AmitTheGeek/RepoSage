@@ -2,7 +2,8 @@
 
 RepoSage indexes a local Git checkout and retrieves source chunks with line citations.
 The backend exposes the same retrieval core through both a CLI and a small
-FastAPI application. It does not call LLMs, use embeddings, clone remote
+FastAPI application. It can optionally call Gemini from the server to produce
+answers grounded in retrieved chunks. It does not use embeddings, clone remote
 repositories, authenticate users, or serve Android UI.
 
 ## Setup
@@ -81,6 +82,26 @@ do not reindex concurrently with API requests.
 Configure the index server-side with `REPOSAGE_DB_PATH`; clients cannot provide
 filesystem paths or SQL.
 
+Optional Gemini answering is also configured server-side:
+
+```bash
+export GEMINI_API_KEY='your-api-key'
+export REPOSAGE_GEMINI_MODEL='gemini-2.5-flash-lite'
+```
+
+`GEMINI_API_KEY` is required only for `POST /answer` when retrieved evidence is
+available. Keep it out of shell history, logs, source control, and client apps.
+If `REPOSAGE_GEMINI_MODEL` is unset, RepoSage defaults to
+`gemini-2.5-flash-lite`, which was selected because Google documents it as
+available on the Gemini API free tier. Do not silently substitute a paid-only
+model.
+
+Additional optional server-side controls:
+
+- `REPOSAGE_GEMINI_TIMEOUT_MS`: request timeout in milliseconds, default `20000`.
+- `REPOSAGE_GEMINI_MAX_OUTPUT_TOKENS`: structured answer output cap, default
+  `1024`.
+
 Launch the development server on localhost:
 
 ```bash
@@ -102,6 +123,14 @@ curl -sS -X POST http://127.0.0.1:8000/search \
   -d '{"query":"How are GitHub HTTP errors mapped to DevPulse errors like rate limited, not found, and server error?","top_k":1}'
 ```
 
+Answer:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/answer \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"How are GitHub HTTP errors mapped to DevPulse errors like rate limited, not found, and server error?","top_k":5}'
+```
+
 `POST /search` accepts:
 
 ```json
@@ -119,6 +148,30 @@ Behavior:
   paths.
 - Search responses include safe index metadata, score direction, and repository
   relative result paths only.
+- `/answer` uses the same request validation and retrieval path as `/search`.
+- If retrieval returns no chunks, `/answer` returns `insufficient_evidence`
+  without calling Gemini.
+- Retrieved chunks are assigned request-local source IDs such as `S1` and `S2`.
+  Only chunks sent to Gemini may be cited.
+- The answer evidence context is capped at 20,000 formatted characters. Chunks
+  are deduplicated, and over-budget chunks are omitted whole rather than
+  truncated.
+- Gemini must return structured JSON containing `status` and `claims`. The
+  server validates that every answered claim cites supplied source IDs, then
+  resolves paths, line ranges, and citation strings from stored retrieval
+  metadata. It never trusts model-generated paths or line numbers.
+- Citation/reference validation is structural; it does not prove semantic
+  correctness of a generated claim.
+
+`POST /answer` error codes:
+
+- `503 gemini_not_configured`: Gemini SDK/key configuration is missing.
+- `429 gemini_quota_or_rate_limited`: Gemini returned a quota or rate-limit
+  failure.
+- `504 gemini_timeout`: Gemini did not respond within the configured timeout.
+- `502 gemini_provider_failure`: Gemini failed for another provider-side reason.
+- `502 gemini_invalid_response`: Gemini returned malformed output or cited an
+  unknown source ID.
 
 `index_metadata` response types are stable at the API boundary:
 
