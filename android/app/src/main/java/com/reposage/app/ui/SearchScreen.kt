@@ -17,6 +17,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,10 +27,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.reposage.app.data.AnswerPayload
+import com.reposage.app.data.AnswerSource
 import com.reposage.app.data.IndexMetadata
 import com.reposage.app.data.SearchPayload
 import com.reposage.app.data.SearchResult
@@ -43,6 +47,7 @@ fun SearchScreen(
     SearchScreenContent(
         uiState = uiState,
         onQuestionChanged = viewModel::onQuestionChanged,
+        onAsk = viewModel::onAskClicked,
         onSearch = viewModel::onSearchClicked,
         onRetry = viewModel::onRetry,
         modifier = modifier,
@@ -53,6 +58,7 @@ fun SearchScreen(
 fun SearchScreenContent(
     uiState: SearchUiState,
     onQuestionChanged: (String) -> Unit,
+    onAsk: () -> Unit,
     onSearch: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -71,23 +77,42 @@ fun SearchScreenContent(
         OutlinedTextField(
             value = uiState.draftQuestion,
             onValueChange = onQuestionChanged,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("question-input"),
             label = { Text("Question") },
             minLines = 2,
             maxLines = 4,
             placeholder = { Text("Ask about the indexed repository") },
         )
-        Button(
-            onClick = onSearch,
-            enabled = uiState.content !is SearchContentState.Loading,
+        val requestInFlight = uiState.content is SearchContentState.Loading
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Search")
+            Button(
+                onClick = onAsk,
+                enabled = !requestInFlight,
+            ) {
+                Text("Ask")
+            }
+            OutlinedButton(
+                onClick = onSearch,
+                enabled = !requestInFlight,
+            ) {
+                Text("Search code")
+            }
         }
 
         when (val content = uiState.content) {
             SearchContentState.Initial -> InitialState()
-            is SearchContentState.Loading -> LoadingState(content.submittedQuestion)
-            is SearchContentState.Results -> ResultsState(content.payload)
+            is SearchContentState.Loading -> LoadingState(
+                submittedQuestion = content.submittedQuestion,
+                mode = content.mode,
+            )
+            is SearchContentState.SearchResults -> ResultsState(content.payload)
+            is SearchContentState.Answer -> AnswerState(content.payload)
+            is SearchContentState.InsufficientEvidence -> InsufficientEvidenceState(content.payload)
             is SearchContentState.Empty -> EmptyState(
                 submittedQuestion = content.submittedQuestion,
                 metadata = content.metadata,
@@ -103,20 +128,28 @@ fun SearchScreenContent(
 @Composable
 private fun InitialState() {
     Text(
-        text = "No search submitted.",
+        text = "Ask for a grounded answer or search retrieved code.",
         style = MaterialTheme.typography.bodyMedium,
     )
 }
 
 @Composable
-private fun LoadingState(submittedQuestion: String) {
+private fun LoadingState(
+    submittedQuestion: String,
+    mode: RequestMode,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         CircularProgressIndicator()
         Column {
-            Text(text = "Searching")
+            Text(
+                text = when (mode) {
+                    RequestMode.Ask -> "Generating answer"
+                    RequestMode.SearchCode -> "Searching code"
+                },
+            )
             Text(
                 text = submittedQuestion,
                 style = MaterialTheme.typography.bodyMedium,
@@ -140,6 +173,63 @@ private fun ResultsState(payload: SearchPayload) {
             result = result,
         )
     }
+}
+
+@Composable
+private fun AnswerState(payload: AnswerPayload) {
+    SubmittedQuestion(payload.query)
+    AnswerDetails(payload = payload)
+    Text(
+        text = "Claims are grounded by cited source IDs. Citation validation does not prove semantic correctness.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    var selectedSourceId by rememberSaveable(payload.query) {
+        mutableStateOf<String?>(null)
+    }
+    payload.claims.forEachIndexed { index, claim ->
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            HorizontalDivider()
+            Text(
+                text = "${index + 1}. ${claim.text}",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                claim.sourceIds.forEach { sourceId ->
+                    val source = payload.sourceFor(sourceId)
+                    TextButton(
+                        onClick = { selectedSourceId = sourceId },
+                        enabled = source != null,
+                        modifier = Modifier.testTag("citation-$sourceId"),
+                    ) {
+                        Text(sourceId)
+                    }
+                }
+            }
+        }
+    }
+    payload.sourceFor(selectedSourceId.orEmpty())?.let { source ->
+        SourceDetail(source = source)
+    }
+}
+
+@Composable
+private fun InsufficientEvidenceState(payload: AnswerPayload) {
+    SubmittedQuestion(payload.query)
+    AnswerDetails(payload = payload)
+    Text(
+        text = "Insufficient evidence in the retrieved source chunks to answer this question.",
+        style = MaterialTheme.typography.titleMedium,
+    )
+    Text(
+        text = "This is an abstention from the supplied evidence, not proof that the feature is absent.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
@@ -176,6 +266,30 @@ private fun ErrorState(
 }
 
 @Composable
+private fun AnswerDetails(payload: AnswerPayload) {
+    val shortRevision = payload.indexMetadata.gitHead.take(12).ifBlank { "unknown" }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = "Model ${payload.modelId}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "Revision $shortRevision | dirty: ${payload.indexMetadata.gitDirty} | ${payload.indexMetadata.filesIndexed} files | ${payload.indexMetadata.chunksIndexed} chunks",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        payload.latencyMs?.let { latencyMs ->
+            Text(
+                text = "Backend latency ${latencyMs} ms",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
 private fun SubmittedQuestion(question: String) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
@@ -197,6 +311,40 @@ private fun MetadataLine(metadata: IndexMetadata) {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+}
+
+@Composable
+private fun SourceDetail(source: AnswerSource) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("answer-source-detail"),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        HorizontalDivider()
+        Text(
+            text = "${source.sourceId}: ${source.path}:L${source.startLine}-L${source.endLine}",
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = source.citation,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SelectionContainer {
+            Text(
+                text = source.text,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.bodySmall,
+                softWrap = false,
+            )
+        }
+    }
 }
 
 @Composable

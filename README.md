@@ -5,12 +5,12 @@ checkout into SQLite, exposes search and optional grounded answers through a
 small Python API, and provides a debug Android client that renders exact source
 snippets with repository-relative line citations.
 
-The Android milestone is retrieval only: the app calls `/search` and shows
-source evidence. The backend also has an experimental `/answer` endpoint that
-asks Gemini for structured answers grounded in retrieved chunks and validates
-the returned source IDs before resolving citations. Live Gemini answer-quality
-evaluation is still pending. Embeddings, authentication, cloud sync, saved
-Android history, and multi-repository management are not implemented.
+The Android app can either call `/search` to show retrieved code chunks or call
+`/answer` to display backend-generated claims with validated source references.
+Gemini answer quality has not been live-accepted yet; Task 005 verified the
+Android answer UI only with deterministic mock HTTP responses. Embeddings,
+authentication, cloud sync, saved Android history, and multi-repository
+management are not implemented.
 
 ## Current Functionality
 
@@ -20,8 +20,10 @@ Android history, and multi-repository management are not implemented.
   index.
 - FastAPI exposes optional `POST /answer` when `GEMINI_API_KEY` is configured on
   the server.
-- Android debug app submits a question to the API and shows loading, result,
-  empty, and retryable error states.
+- Android debug app lets you choose `Ask` for grounded answers or `Search code`
+  for retrieved source chunks.
+- Android shows loading, result, insufficient-evidence/empty, and retryable error
+  states.
 - Results include exact code snippets and citations such as
   `core/data/src/main/java/.../ErrorMapping.kt:L1-L42`.
 - Snippets can be expanded inline in the Android client.
@@ -31,7 +33,7 @@ Android history, and multi-repository management are not implemented.
 ```text
 Android Compose app
   -> Retrofit/OkHttp client
-  -> Python FastAPI /search endpoint
+  -> Python FastAPI /search or /answer endpoint
   -> RepoSage retrieval core
   -> SQLite FTS5 index built from a local Git checkout
 
@@ -94,6 +96,7 @@ Detailed setup lives in:
 - [Android setup, build, and install docs](android/README.md)
 - [Task 003 verification report](outputs/task-003-report.md)
 - [Task 004 answer-generation report](outputs/task-004-report.md)
+- [Task 005 Android answer-flow report](outputs/task-005-report.md)
 
 ## Verified Checkpoint
 
@@ -132,8 +135,8 @@ non-personal test content.
   ViewModel/catalog chunks.
 - The Android client is a debug vertical slice and requires a separately running
   local backend.
-- Generated answers are backend-only in Task 004; the Android app still shows
-  retrieved source evidence only.
+- Live generated-answer quality remains pending. Android answer rendering has
+  been verified with mock `/answer` data, not live Gemini output.
 - Source-reference validation verifies that generated claims cite supplied source
   IDs and that citations are resolved from stored metadata. It does not prove
   semantic correctness.

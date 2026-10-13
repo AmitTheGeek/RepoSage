@@ -1,9 +1,14 @@
 # RepoSage Android
 
 Minimal debug Android client for the RepoSage retrieval API. The app submits a
-question to an existing Python `/search` endpoint and renders returned source
-chunks with citations. It does not index repositories or change retrieval
-ranking.
+question to an existing Python backend and lets you choose:
+
+- `Ask`: call `POST /answer` and render answer claims with source references.
+- `Search code`: call `POST /search` and render retrieved source chunks with
+  citations.
+
+It does not index repositories, change retrieval ranking, configure Gemini, or
+fabricate answers when the backend is unavailable.
 
 ## Requirements
 
@@ -22,6 +27,10 @@ source .venv/bin/activate
 REPOSAGE_DB_PATH=.data/devpulse.db \
   uvicorn reposage.api:app --host 127.0.0.1 --port 8000
 ```
+
+`Ask` requires the backend `/answer` endpoint to be configured server-side with
+`GEMINI_API_KEY` and `REPOSAGE_GEMINI_MODEL`. The Android app never stores or
+sends a Gemini key directly.
 
 For an Android emulator, the debug app defaults to:
 
@@ -48,11 +57,22 @@ From `android/` with `JAVA_HOME` pointing to JDK 17 or 21:
 ```bash
 ./gradlew testDebugUnitTest
 ./gradlew assembleDebug
+./gradlew assembleDebugAndroidTest
 ```
 
 Focused tests cover ViewModel success, empty results, retry after errors,
-overlapping searches, draft restoration, and JSON parsing for the actual API
-response structure.
+overlapping requests, draft restoration, answer/abstention states, retrying the
+submitted question snapshot, JSON parsing for the actual `/search` and `/answer`
+response structures, and compilation of mock-server Compose UI tests.
+
+Run connected mock UI tests only when a device or emulator is available:
+
+```bash
+./gradlew connectedDebugAndroidTest
+```
+
+The connected tests use deterministic `MockWebServer` responses and do not call
+Gemini.
 
 ## Install
 
@@ -62,5 +82,6 @@ With a device or emulator available:
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Then start the backend, open RepoSage, enter a question, and expand a result to
-inspect the exact retrieved source text and citation.
+Then start the backend, open RepoSage, enter a question, choose `Ask` or
+`Search code`, and inspect the returned answer references or retrieved source
+text. Live Gemini answer quality is still pending manual acceptance.
