@@ -1,15 +1,16 @@
 # RepoSage
 
 RepoSage is a local repository retrieval prototype. It indexes a local Git
-checkout into SQLite, exposes search through a small Python API, and provides a
-debug Android client that renders exact source snippets with repository-relative
-line citations.
+checkout into SQLite, exposes search and optional grounded answers through a
+small Python API, and provides a debug Android client that renders exact source
+snippets with repository-relative line citations.
 
-The current Android milestone is retrieval only. The backend also has an
-experimental `/answer` endpoint that asks Gemini for structured answers grounded
-in retrieved chunks and validates the returned source IDs before resolving
-citations. Embeddings, authentication, cloud sync, saved Android history, and
-multi-repository management are not implemented.
+The Android milestone is retrieval only: the app calls `/search` and shows
+source evidence. The backend also has an experimental `/answer` endpoint that
+asks Gemini for structured answers grounded in retrieved chunks and validates
+the returned source IDs before resolving citations. Live Gemini answer-quality
+evaluation is still pending. Embeddings, authentication, cloud sync, saved
+Android history, and multi-repository management are not implemented.
 
 ## Current Functionality
 
@@ -47,7 +48,47 @@ The Android app does not index repositories itself. It expects the Python
 backend to be running against an existing SQLite index. The backend does not
 clone repositories or execute indexed code.
 
-Setup details live in:
+## Setup Order
+
+Use the detailed guides linked below, but set the project up in this order:
+
+1. Install backend dependencies in a Python virtual environment.
+2. Index a local DevPulse checkout with `reposage index`.
+3. Configure the Gemini key and model in the Python backend process environment.
+4. Launch the FastAPI backend with `REPOSAGE_DB_PATH` pointing at the SQLite
+   index.
+5. Connect Android to the backend, using `adb reverse` for a physical USB phone.
+
+Minimal command outline:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e "backend[test]"
+
+reposage index --repo /path/to/devpulse-checkout --db .data/devpulse.db
+
+printf 'Gemini API key: '
+IFS= read -r -s GEMINI_API_KEY
+printf '\n'
+export GEMINI_API_KEY
+export REPOSAGE_GEMINI_MODEL='gemini-2.5-flash-lite'
+export REPOSAGE_DB_PATH='.data/devpulse.db'
+
+uvicorn reposage.api:app --host 127.0.0.1 --port 8000
+```
+
+For Android on a USB-connected phone, run the backend first, then in another
+terminal:
+
+```bash
+adb reverse tcp:8000 tcp:8000
+cd android
+./gradlew :app:assembleDebug -Preposage.backendUrl=http://127.0.0.1:8000/
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Detailed setup lives in:
 
 - [Backend setup and API docs](backend/README.md)
 - [Android setup, build, and install docs](android/README.md)
@@ -99,31 +140,6 @@ non-personal test content.
 - No production hardening, authentication, remote repository management, or
   concurrent reindex coordination has been added.
 
-## Quick Start
-
-Backend:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e "backend[test]"
-reposage index --repo /path/to/local/repo --db .data/devpulse.db
-REPOSAGE_DB_PATH=.data/devpulse.db uvicorn reposage.api:app --host 127.0.0.1 --port 8000
-```
-
-Android emulator:
-
-```bash
-cd android
-./gradlew testDebugUnitTest assembleDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-Physical USB device:
-
-```bash
-adb reverse tcp:8000 tcp:8000
-cd android
-./gradlew assembleDebug -Preposage.backendUrl=http://127.0.0.1:8000/
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
+Retrieval was verified on a physical device in Task 003. Gemini-backed answer
+generation has offline tests only so far; live `/answer` evaluation remains
+pending until a valid backend key and quota are available.

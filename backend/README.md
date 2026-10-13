@@ -10,6 +10,10 @@ repositories, authenticate users, or serve Android UI.
 
 Use Python 3.11 or newer. Task 002 was verified with Python 3.12.13.
 
+Run these commands from the repository root.
+
+### 1. Create The Python Environment
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -22,6 +26,110 @@ dependencies. The `[test]` extra adds `httpx` for FastAPI test-client coverage.
 If your Python's `sqlite3` module was not built with FTS5, `reposage index` exits
 with an actionable error before writing the index.
 
+### 2. Index A Local DevPulse Checkout
+
+RepoSage indexes a local checkout that already exists on your machine. It does
+not clone DevPulse for you.
+
+```bash
+reposage index \
+  --repo /path/to/devpulse-checkout \
+  --db .data/devpulse.db
+```
+
+The generated SQLite database is ignored by `.gitignore`.
+
+### 3. Create A Gemini Key
+
+Create a Gemini API key in Google AI Studio:
+
+```text
+https://aistudio.google.com/app/apikey
+```
+
+Do not enable billing for this project unless you explicitly intend to. RepoSage
+defaults to `gemini-2.5-flash-lite`, which was selected because Google documents
+it as available on the Gemini API free tier. Free-tier availability and quotas
+are controlled by Google, so this is not a promise of unlimited usage.
+
+### 4. Configure Backend Environment Variables
+
+The Gemini key belongs only in the environment of the Python backend process. It
+does not belong in Android code, README text, committed files, screenshots, or
+Git history.
+
+For macOS zsh/bash, prompt for the key without displaying it or saving the
+literal key in shell history:
+
+```bash
+printf 'Gemini API key: '
+IFS= read -r -s GEMINI_API_KEY
+printf '\n'
+export GEMINI_API_KEY
+export REPOSAGE_GEMINI_MODEL='gemini-2.5-flash-lite'
+export REPOSAGE_DB_PATH='.data/devpulse.db'
+```
+
+Presence-only check; this never prints the key:
+
+```bash
+if [ -n "${GEMINI_API_KEY:-}" ]; then
+  echo "GEMINI_API_KEY is set"
+else
+  echo "GEMINI_API_KEY is missing"
+fi
+printf 'REPOSAGE_GEMINI_MODEL=%s\n' "$REPOSAGE_GEMINI_MODEL"
+printf 'REPOSAGE_DB_PATH=%s\n' "$REPOSAGE_DB_PATH"
+```
+
+Start the backend from this same terminal so `uvicorn` inherits the variables.
+A separately launched Codex session, IDE, or terminal tab will not automatically
+inherit variables set here. If you close the terminal, configure the variables
+again before restarting the backend. RepoSage does not automatically load `.env`
+files.
+
+Additional optional server-side controls:
+
+- `REPOSAGE_GEMINI_TIMEOUT_MS`: request timeout in milliseconds, default `20000`.
+- `REPOSAGE_GEMINI_MAX_OUTPUT_TOKENS`: structured answer output cap, default
+  `1024`.
+
+### 5. Start The Backend
+
+From the same terminal where the virtual environment is active and the variables
+above are set:
+
+```bash
+uvicorn reposage.api:app --host 127.0.0.1 --port 8000
+```
+
+The backend reads `REPOSAGE_DB_PATH`, `GEMINI_API_KEY`, and
+`REPOSAGE_GEMINI_MODEL` from the Python process environment at runtime.
+
+### 6. Test The API
+
+Health:
+
+```bash
+curl -sS http://127.0.0.1:8000/health
+```
+
+Search:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"How are GitHub HTTP errors mapped to DevPulse errors like rate limited, not found, and server error?","top_k":1}'
+```
+
+Answer:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/answer \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"How are GitHub HTTP errors mapped to DevPulse errors like rate limited, not found, and server error?","top_k":5}'
+```
+
 ## Test
 
 From the repository root:
@@ -31,8 +139,8 @@ python -m unittest discover -s backend/tests -v
 ```
 
 The tests use temporary Git repositories only. They do not include or commit the
-DevPulse corpus. Coverage includes Task 001 retrieval behavior and Task 002 HTTP
-API behavior.
+DevPulse corpus. Coverage includes retrieval behavior, HTTP API behavior, and
+offline fake-provider coverage for structured Gemini answer orchestration.
 
 ## Index DevPulse
 
@@ -82,54 +190,8 @@ do not reindex concurrently with API requests.
 Configure the index server-side with `REPOSAGE_DB_PATH`; clients cannot provide
 filesystem paths or SQL.
 
-Optional Gemini answering is also configured server-side:
-
-```bash
-export GEMINI_API_KEY='your-api-key'
-export REPOSAGE_GEMINI_MODEL='gemini-2.5-flash-lite'
-```
-
-`GEMINI_API_KEY` is required only for `POST /answer` when retrieved evidence is
-available. Keep it out of shell history, logs, source control, and client apps.
-If `REPOSAGE_GEMINI_MODEL` is unset, RepoSage defaults to
-`gemini-2.5-flash-lite`, which was selected because Google documents it as
-available on the Gemini API free tier. Do not silently substitute a paid-only
-model.
-
-Additional optional server-side controls:
-
-- `REPOSAGE_GEMINI_TIMEOUT_MS`: request timeout in milliseconds, default `20000`.
-- `REPOSAGE_GEMINI_MAX_OUTPUT_TOKENS`: structured answer output cap, default
-  `1024`.
-
-Launch the development server on localhost:
-
-```bash
-REPOSAGE_DB_PATH=.data/devpulse.db \
-  uvicorn reposage.api:app --host 127.0.0.1 --port 8000
-```
-
-Health:
-
-```bash
-curl -sS http://127.0.0.1:8000/health
-```
-
-Search:
-
-```bash
-curl -sS -X POST http://127.0.0.1:8000/search \
-  -H 'Content-Type: application/json' \
-  -d '{"query":"How are GitHub HTTP errors mapped to DevPulse errors like rate limited, not found, and server error?","top_k":1}'
-```
-
-Answer:
-
-```bash
-curl -sS -X POST http://127.0.0.1:8000/answer \
-  -H 'Content-Type: application/json' \
-  -d '{"query":"How are GitHub HTTP errors mapped to DevPulse errors like rate limited, not found, and server error?","top_k":5}'
-```
+Optional Gemini answering is also configured server-side with `GEMINI_API_KEY`
+and `REPOSAGE_GEMINI_MODEL`, as shown in the setup steps above.
 
 `POST /search` accepts:
 
@@ -182,6 +244,25 @@ Behavior:
 
 Additional metadata fields such as `schema_version`, `indexed_at_utc`,
 `chunk_lines`, and `overlap_lines` may also be present.
+
+## Troubleshooting
+
+- Missing key: if `/answer` has retrieved evidence but `GEMINI_API_KEY` is not
+  set in the backend process, it returns `503` with
+  `gemini_not_configured`. Configure the key in the same terminal that starts
+  `uvicorn`.
+- Invalid key: Gemini authentication failures are provider-side failures in the
+  current adapter and return `502` with `gemini_provider_failure`.
+- Unavailable model: an invalid or unavailable `REPOSAGE_GEMINI_MODEL` also
+  returns `502` with `gemini_provider_failure`.
+- Quota or rate limit exhausted: Gemini quota/rate-limit responses return `429`
+  with `gemini_quota_or_rate_limited`. RepoSage does not automatically switch to
+  another model.
+- Missing index: `/health` reports `index_ready: false`, while `/search` and
+  `/answer` return `503` with the safe index setup message. Build the index and
+  set `REPOSAGE_DB_PATH` in the backend process environment.
+- No matching chunks: `/search` returns an empty `results` list. `/answer`
+  returns `insufficient_evidence` without calling Gemini.
 
 ## Evaluate
 
