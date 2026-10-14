@@ -122,3 +122,15 @@ Pending:
 - Connected Android UI tests, because those require a device or emulator.
 - Live Gemini answer-quality evaluation, because that requires server-side
   Gemini credentials/quota and source review.
+
+## Hosted CI Follow-Up
+
+The first hosted run for `15a207b` completed with:
+
+- Backend offline tests: success.
+- Android unit tests and debug APK: failure in `Install Android SDK components`.
+
+The GitHub annotation reported `Process completed with exit code 127`, and the
+failure occurred before any Gradle Android command ran. The workflow was updated
+to invoke `sdkmanager` through the hosted runner's `ANDROID_HOME` or
+`ANDROID_SDK_ROOT` path instead of assuming it is present on `PATH`.
