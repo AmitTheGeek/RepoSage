@@ -94,11 +94,11 @@ Android verification used Temurin JDK 17.0.20.1:
 
 ```bash
 cd android
-JAVA_HOME=/Users/batcomputer/Documents/Codex/2026-10-04/build-pocketai-s-first-offline-android/work/jdk17/Contents/Home \
+JAVA_HOME=/path/to/jdk17 \
   ./gradlew --no-daemon testDebugUnitTest
-JAVA_HOME=/Users/batcomputer/Documents/Codex/2026-10-04/build-pocketai-s-first-offline-android/work/jdk17/Contents/Home \
+JAVA_HOME=/path/to/jdk17 \
   ./gradlew --no-daemon assembleDebug
-JAVA_HOME=/Users/batcomputer/Documents/Codex/2026-10-04/build-pocketai-s-first-offline-android/work/jdk17/Contents/Home \
+JAVA_HOME=/path/to/jdk17 \
   ./gradlew --no-daemon assembleDebugAndroidTest
 ```
 
