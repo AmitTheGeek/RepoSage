@@ -1,0 +1,110 @@
+name: Offline CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend offline tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install backend with test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "backend[test]"
+
+      - name: Confirm SQLite FTS5 support
+        run: |
+          python - <<'PY'
+          import sqlite3
+
+          connection = sqlite3.connect(":memory:")
+          connection.execute("CREATE VIRTUAL TABLE reposage_fts5_probe USING fts5(value)")
+          connection.execute("INSERT INTO reposage_fts5_probe(value) VALUES (?)", ("probe",))
+          rows = list(
+              connection.execute(
+                  "SELECT value FROM reposage_fts5_probe "
+                  "WHERE reposage_fts5_probe MATCH 'probe'"
+              )
+          )
+          assert rows == [("probe",)]
+          print("SQLite FTS5 available")
+          PY
+
+      - name: Run backend tests
+        run: python -m unittest discover -s backend/tests -v
+
+  android:
+    name: Android unit tests and debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Install Android SDK components
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Run Android unit tests
+        working-directory: android
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Assemble debug APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Assemble debug Android test APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebugAndroidTest
+
+      - name: Upload Android test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-test-reports
+          path: |
+            android/app/build/reports/tests/
+            android/app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reposage-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7

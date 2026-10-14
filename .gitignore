@@ -14,6 +14,7 @@ htmlcov/
 dist/
 build/
 *.apk
+.DS_Store
 
 # Android/IDE local state.
 android/.gradle/

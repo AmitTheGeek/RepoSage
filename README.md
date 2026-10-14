@@ -97,6 +97,43 @@ Detailed setup lives in:
 - [Task 003 verification report](outputs/task-003-report.md)
 - [Task 004 answer-generation report](outputs/task-004-report.md)
 - [Task 005 Android answer-flow report](outputs/task-005-report.md)
+- [Task 006 CI report](outputs/task-006-report.md)
+
+## Continuous Integration
+
+The GitHub Actions workflow in `.github/workflows/ci.yml` is designed to run
+without Gemini credentials and without a local DevPulse checkout. It triggers on
+pull requests and pushes to `main`, uses read-only repository permissions, and
+cancels superseded runs for the same branch or pull request.
+
+The backend job installs `backend[test]` in a clean Python 3.12 environment,
+checks that SQLite FTS5 is available, and runs the offline backend unit/API
+tests:
+
+```bash
+python -m pip install -e "backend[test]"
+python - <<'PY'
+import sqlite3
+connection = sqlite3.connect(":memory:")
+connection.execute("CREATE VIRTUAL TABLE probe USING fts5(value)")
+print("SQLite FTS5 available")
+PY
+python -m unittest discover -s backend/tests -v
+```
+
+The Android job uses JDK 17 with the checked-in Gradle wrapper, installs Android
+SDK platform/build-tools 36, and runs:
+
+```bash
+cd android
+./gradlew --no-daemon testDebugUnitTest
+./gradlew --no-daemon assembleDebug
+./gradlew --no-daemon assembleDebugAndroidTest
+```
+
+Android test reports and the debug APK are uploaded as short-retention workflow
+artifacts. Hosted CI has not been marked passing yet because the workflow has
+not run on GitHub at the time this documentation was updated.
 
 ## Verified Checkpoint
 
@@ -137,6 +174,8 @@ non-personal test content.
   local backend.
 - Live generated-answer quality remains pending. Android answer rendering has
   been verified with mock `/answer` data, not live Gemini output.
+- Connected Android UI tests and manual device acceptance remain pending unless
+  a device or emulator is attached for `./gradlew connectedDebugAndroidTest`.
 - Source-reference validation verifies that generated claims cite supplied source
   IDs and that citations are resolved from stored metadata. It does not prove
   semantic correctness.
